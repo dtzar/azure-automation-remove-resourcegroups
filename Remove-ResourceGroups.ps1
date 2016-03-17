@@ -42,8 +42,8 @@
 workflow Remove-ResourceGroups
 {
     param(
-	    [Parameter(Mandatory=$false)]  
-	    [string]  $AzureCredentialAssetName = 'AzureCredential', 
+		[Parameter(Mandatory=$false)]  
+		[string]  $AzureCredentialAssetName = 'AzureCredential', 
 		
         [parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -82,7 +82,7 @@ workflow Remove-ResourceGroups
 	# Parse subscription id list and name filter list
     $subscriptionIdList = $SubscriptionIds.Split(',')
 	if ($NameFilter) {
-    	$nameFilterList = $NameFilter.Split(',')
+		$nameFilterList = $NameFilter.Split(',')
 		[regex]$nameFilterRegex = ‘(‘ + (($nameFilterList | foreach {[regex]::escape($_.ToLower())}) –join “|”) + ‘)’
 	}
 
@@ -93,34 +93,34 @@ workflow Remove-ResourceGroups
 			Write-Output "Attempting connection to subscription: $subscriptionId"
 			Select-AzureRMSubscription -SubscriptionId $subscriptionId -ErrorAction Stop -ErrorVariable err
 			if($err) { 
-			   Write-Error "Subscription not found: $subscriptionId."
-			   throw $err
-		    }
+				Write-Error "Subscription not found: $subscriptionId."
+				throw $err
+			}
 			else {
 				Write-Output "Successful connection to subscription: $subscriptionId"
 				# Find resource groups to remove based on passed in name filter and KEEP, DELETE, or DELEETALL action
-		        if ($ActionType.ToUpper() -eq 'KEEP') {
-		            $groupsToRemove = Get-AzureRmResourceGroup | `
-		                            ? { -not $_.ResourceGroupName.StartsWith('Default-') } |`
-		                            ? { $nameFilterList.Count -eq 0 -or $_.ResourceGroupName.ToLower() -notmatch $nameFilterRegex }
-		        }
-		        elseif ($ActionType.ToUpper() -eq 'DELETE') {
-		            $groupsToRemove = Get-AzureRmResourceGroup | `
-		                            ? { -not $_.ResourceGroupName.StartsWith('Default-') } |`
-		                            ? { $nameFilterList.Count -eq 0 -or $_.ResourceGroupName.ToLower() -match $nameFilterRegex }
-		        }
-		        elseif ($ActionType.ToUpper() -eq 'DELETEALL') {
-		            $groupsToRemove = Get-AzureRmResourceGroup | `
-		                            ? { -not $_.ResourceGroupName.StartsWith('Default-') }
-		        }
+				if ($ActionType.ToUpper() -eq 'KEEP') {
+					$groupsToRemove = Get-AzureRmResourceGroup | `
+									? { -not $_.ResourceGroupName.StartsWith('Default-') } |`
+									? { $nameFilterList.Count -eq 0 -or $_.ResourceGroupName.ToLower() -notmatch $nameFilterRegex }
+				}
+				elseif ($ActionType.ToUpper() -eq 'DELETE') {
+					$groupsToRemove = Get-AzureRmResourceGroup | `
+									? { -not $_.ResourceGroupName.StartsWith('Default-') } |`
+									? { $nameFilterList.Count -eq 0 -or $_.ResourceGroupName.ToLower() -match $nameFilterRegex }
+				}
+				elseif ($ActionType.ToUpper() -eq 'DELETEALL') {
+					$groupsToRemove = Get-AzureRmResourceGroup | `
+									? { -not $_.ResourceGroupName.StartsWith('Default-') }
+				}
 		
 				# No matching groups were found to remove
-		        if ($groupsToRemove.Count -eq 0) {
-		            Write-Output "No matching resource groups found for subscription: $($subscriptionId)"
-		        }
+				if ($groupsToRemove.Count -eq 0) {
+					Write-Output "No matching resource groups found for subscription: $($subscriptionId)"
+				}
 				# Matching groups were found to remove
-		        else
-		        {
+				else
+				{
 					# In preview mode, output what would take place but take no action
 					if ($PreviewMode -eq $true) {
 						Write-Output "Preview Mode: The following resource groups would be removed for subscription: $($subscriptionId)"
@@ -133,22 +133,22 @@ workflow Remove-ResourceGroups
 					}
 					# Remove the resource groups in parallel
 					else {
-			            Write-Output "Preparing to remove resource groups in parallel for subscription: $($subscriptionId)"
+						Write-Output "Preparing to remove resource groups in parallel for subscription: $($subscriptionId)"
 						Write-Verbose "(VERBOSE): The following resources will be removed:"
 						$resources = (Get-AzureRmResource | foreach {$_} | Where-Object {$groupsToRemove.ResourceGroupName.Contains($_.ResourceGroupName)})
 						foreach ($resource in $resources) {
 							Write-Verbose $resource
 						}
 						foreach -parallel ($resourceGroup in $groupsToRemove) {
-		                    Write-Output "Starting to remove resource group: $($resourceGroup.ResourceGroupName)"
-				            Remove-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -Force
-				            if ((Get-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -ErrorAction SilentlyContinue) -eq $null) {
-				                Write-Output "...successfully removed resource group: $($resourceGroup.ResourceGroupName)"
-				            }				
+							Write-Output "Starting to remove resource group: $($resourceGroup.ResourceGroupName)"
+							Remove-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -Force
+							if ((Get-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -ErrorAction SilentlyContinue) -eq $null) {
+								Write-Output "...successfully removed resource group: $($resourceGroup.ResourceGroupName)"
+							}				
 						}
 					}
 					Write-Output "Completed."
-		        }
+				}
 			}
 		}
 		catch {
