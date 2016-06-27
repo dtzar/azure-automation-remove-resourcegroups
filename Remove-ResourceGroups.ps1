@@ -6,14 +6,21 @@
   This runbook connects to Azure and removes all resource groups which match the name filter. 
   You can run across multiple subscriptions, delete all resource groups, or run in preview mode. 
  
-  REQUIRED AUTOMATION ASSETS  
-  1. An Automation credential asset called "AzureCredential" that contains the Azure AD user credential with authorization for targeted subscriptions.  
-    To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter. 
- 
-.PARAMETER AzureCredentialAssetName 
-  Optional with default of "AzureCredential". 
-  The name of an Automation credential asset that contains the Azure AD user credential with authorization for this subscription.  
-  To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter. 
+  REQUIRED AUTOMATION ASSETS
+    Authorization to targeted Azure subscriptions using one of the following options:
+        Option 1: An Automation credential asset that contains the Azure AD user credential.
+        Option 2: An Automation connection asset that contains the Azure AD service principal.
+
+.PARAMETER AuthenticationType 
+  Mandatory.
+  The type of authentication to use for connection to Azure subscriptions.
+  Valid values are AADCREDENTIAL and SERVICEPRINCIPAL.
+    - AADCREDENTIAL = Automation credential asset using an Azure AD user credential
+    - SERVICEPRINCIPAL = Automation connection asset using an Azure AD service principal
+
+.PARAMETER AuthenticationAssetName 
+  Mandatory. 
+  The name of an authentication asset with authorization for this subscription. 
  
 .PARAMETER ActionType 
   Mandatory. 
@@ -42,8 +49,11 @@
 workflow Remove-ResourceGroups
 {
 	param(
-		[Parameter(Mandatory=$false)]  
-		[string]  $AzureCredentialAssetName = 'AzureCredential', 
+		[parameter(Mandatory = $true)]
+		[string]$AuthenticationType,
+		
+		[Parameter(Mandatory=$true)]  
+		[string] $AuthenticationAssetName, 
 		
 		[parameter(Mandatory = $true)]
 		[string]$ActionType,
@@ -64,18 +74,36 @@ workflow Remove-ResourceGroups
 	
 	$VerbosePreference = 'Continue'
 	
+	[regex]$authenticationTypeRegex = 'AADCREDENTIAL|SERVICEPRINCIPAL'
+	if ($AuthenticationType.ToUpper() -notmatch $authenticationTypeRegex) {
+		throw "AuthenticationType not valid, valid types are AADCREDENTIAL and SERVICEPRINCIPAL"
+	}
+
 	[regex]$actionTypeRegex = 'KEEP|DELETE|DELETEALL'
 	if ($ActionType.ToUpper() -notmatch $actionTypeRegex) {
 		throw "ActionType not valid, valid actions are KEEP, DELETE, and DELETEALL"
 	}
  
-	# Connect to Azure and select the subscription to work against
-	$creds = Get-AutomationPSCredential -Name $AzureCredentialAssetName
+ 	# Connect to Azure and select the subscription to work against
+ 	if ($AuthenticationType.ToUpper() -eq "AADCREDENTIAL") {
+		$creds = Get-AutomationPSCredential -Name $AuthenticationAssetName
  
-	$null = Add-AzureRmAccount -Credential $creds -ErrorAction Stop -ErrorVariable err 
-	if($err) { 
-		throw "Failed to log in to Azure RM. $err"
-	} 
+		$null = Add-AzureRmAccount -Credential $creds -ErrorAction Stop -ErrorVariable err 
+		if($err) { 
+			throw "Failed to log in to Azure RM. $err"
+		} 		 
+	 }
+	 elseif ($AuthenticationType.ToUpper() -eq "SERVICEPRINCIPAL") {
+		$servicePrincipalConnection = Get-AutomationConnection -Name $AuthenticationAssetName
+		
+		Add-AzureRmAccount -ServicePrincipal `
+         -TenantId $servicePrincipalConnection.TenantId `
+         -ApplicationId $servicePrincipalConnection.ApplicationId `
+         -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint
+	 }
+	 else {
+		throw "AuthenticationType not valid, valid types are AADCREDENTIAL and SERVICEPRINCIPAL"
+	 }
  
 	# Parse subscription id list and name filter list
 	$subscriptionIdList = $SubscriptionIds.Split(',')
