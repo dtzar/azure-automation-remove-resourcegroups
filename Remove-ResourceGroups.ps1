@@ -116,14 +116,14 @@ workflow Remove-ResourceGroups
 	foreach ($subscriptionId in $subscriptionIdList) {
 		try {
 			# Select the subscription, if not found, skip resource group removal
-			Write-Verbose "Attempting connection to subscription: $subscriptionId"
+			Write-Output "Attempting connection to subscription: $subscriptionId"
 			Set-AzureRMContext -SubscriptionId $subscriptionId -ErrorAction Stop -ErrorVariable err
 			if($err) { 
 				Write-Error "Subscription not found: $subscriptionId."
 				throw $err
 			}
 			else {
-				Write-Verbose "Successful connection to subscription: $subscriptionId"
+				Write-Output "Successful connection to subscription: $subscriptionId"
 				# Find resource groups to remove based on passed in name filter and KEEP, DELETE, or DELEETALL action
 				if ($ActionType.ToUpper() -eq 'KEEP') {
 					$groupsToRemove = Get-AzureRmResourceGroup | `
@@ -139,38 +139,38 @@ workflow Remove-ResourceGroups
 		
 				# No matching groups were found to remove
 				if ($groupsToRemove.Count -eq 0) {
-					Write-Verbose "No matching resource groups found for subscription: $($subscriptionId)"
+					Write-Output "No matching resource groups found for subscription: $($subscriptionId)"
 				}
 				# Matching groups were found to remove
 				else
 				{
 					# In preview mode, output what would take place but take no action
 					if ($PreviewMode -eq $true) {
-						Write-Verbose "Preview Mode: The following resource groups would be removed for subscription: $($subscriptionId)"
+						Write-Output "Preview Mode: The following resource groups would be removed for subscription: $($subscriptionId)"
 						Write-Output $groupsToRemove
-						Write-Verbose "Preview Mode (VERBOSE): The following resources would be removed:"
+						Write-Output "Preview Mode (VERBOSE): The following resources would be removed:"
 						$resources = (Get-AzureRmResource | foreach {$_} | Where-Object {$groupsToRemove.ResourceGroupName.Contains($_.ResourceGroupName)})
 						foreach ($resource in $resources) {
-							Write-Verbose $resource
+							Write-Output $resource
 						}
 					}
 					# Remove the resource groups in parallel
 					else {
-						Write-Verbose "Preparing to remove resource groups in parallel for subscription: $($subscriptionId)"
-						Write-Verbose "(VERBOSE): The following resources will be removed:"
+						Write-Output "Preparing to remove resource groups in parallel for subscription: $($subscriptionId)"
+						Write-Output "(VERBOSE): The following resources will be removed:"
 						$resources = (Get-AzureRmResource | foreach {$_} | Where-Object {$groupsToRemove.ResourceGroupName.Contains($_.ResourceGroupName)})
 						foreach ($resource in $resources) {
-							Write-Verbose $resource
+							Write-Output $resource
 						}
 						foreach -parallel ($resourceGroup in $groupsToRemove) {
-							Write-Verbose "Starting to remove resource group: $($resourceGroup.ResourceGroupName)"
+							Write-Output "Starting to remove resource group: $($resourceGroup.ResourceGroupName)"
 							Remove-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -Force
 							if ((Get-AzureRmResourceGroup -Name $($resourceGroup.ResourceGroupName) -ErrorAction SilentlyContinue) -eq $null) {
-								Write-Verbose "...successfully removed resource group: $($resourceGroup.ResourceGroupName)"
+								Write-Output "...successfully removed resource group: $($resourceGroup.ResourceGroupName)"
 							}				
 						}
 					}
-					Write-Verbose "Completed."
+					Write-Output "Completed."
 				}
 			}
 		}
