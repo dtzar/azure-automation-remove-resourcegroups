@@ -147,7 +147,9 @@ workflow Remove-ResourceGroups
 					# In preview mode, output what would take place but take no action
 					if ($PreviewMode -eq $true) {
 						Write-Output "Preview Mode: The following resource groups would be removed for subscription: $($subscriptionId)"
-						Write-Output $groupsToRemove
+						foreach ($group in $groupsToRemove){						
+						Write-Output $($group.ResourceGroupName)
+						}
 						Write-Output "Preview Mode (VERBOSE): The following resources would be removed:"
 						$resources = (Get-AzureRmResource | foreach {$_} | Where-Object {$groupsToRemove.ResourceGroupName.Contains($_.ResourceGroupName)})
 						foreach ($resource in $resources) {
